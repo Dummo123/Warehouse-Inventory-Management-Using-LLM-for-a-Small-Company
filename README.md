@@ -111,7 +111,7 @@ http://localhost:8000/docs
 
 Логин: `admin` / `admin123`
 
-> В DBeaver: host `localhost`, port `5432`, db `smarttherm`, user/pass `smarttherm/smarttherm`
+В DBeaver: host `localhost`, port `5432`, db `smarttherm`, user/pass `smarttherm/smarttherm`
 
 
 ## API — эндпоинты
