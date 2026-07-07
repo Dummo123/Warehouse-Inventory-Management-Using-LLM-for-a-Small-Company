@@ -1,0 +1,21 @@
+# environment
+.env
+
+# python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# data
+warehouse_report*.xlsx
+
+# IDE
+.idea/
+.vscode/
+
+# misc
+*.log
+.DS_Store
