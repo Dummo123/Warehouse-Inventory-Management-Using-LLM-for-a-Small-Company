@@ -1,16 +1,14 @@
 import React, { useEffect, useState } from "react";
-import { Table, Button, Form, Input, InputNumber, Select, Modal, message, Space, DatePicker } from "antd";
+import { Table, Button, Space } from "antd";
 import { PlusOutlined } from "@ant-design/icons";
+import { useNavigate } from "react-router-dom";
 import dayjs from "dayjs";
-import { getMovements, postReceipt, getArticles } from "../api";
+import { getMovements } from "../api";
 
 export default function PurchasesPage() {
   const [data, setData] = useState<any[]>([]);
-  const [articles, setArticles] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [form] = Form.useForm();
+  const navigate = useNavigate();
 
   const load = async () => {
     setLoading(true);
@@ -18,22 +16,7 @@ export default function PurchasesPage() {
     finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); getArticles("component").then(r => setArticles(r.data)); }, []);
-
-  const onSave = async (values: Record<string, any>) => {
-    setSaving(true);
-    try {
-      await postReceipt({
-        article_code: values.article_code, movement_type: "receipt",
-        quantity: values.quantity, price_per_unit: values.price_per_unit,
-        comment: values.comment,
-        movement_date: values.movement_date ? values.movement_date.toISOString() : undefined,
-      });
-      message.success("Поступление зарегистрировано");
-      form.resetFields(); setModalOpen(false); load();
-    } catch (e: any) { message.error(e?.response?.data?.detail ?? "Ошибка"); }
-    finally { setSaving(false); }
-  };
+  useEffect(() => { load(); }, []);
 
   const columns = [
     { title: "Дата", dataIndex: "movement_date", key: "date", width: 140,
@@ -53,32 +36,12 @@ export default function PurchasesPage() {
   return (
     <div>
       <Space style={{ marginBottom: 16 }}>
-        <Button type="primary" icon={<PlusOutlined />} onClick={() => setModalOpen(true)}>
+        <Button type="primary" icon={<PlusOutlined />} onClick={() => navigate("/purchases/new")}>
           Зарегистрировать поступление
         </Button>
       </Space>
       <Table rowKey="id" columns={columns} dataSource={data} loading={loading}
         size="small" pagination={{ pageSize: 25, showSizeChanger: true }} />
-      <Modal title="Поступление комплектующих" open={modalOpen}
-        onCancel={() => setModalOpen(false)} footer={null} destroyOnClose>
-        <Form form={form} layout="vertical" onFinish={onSave} requiredMark={false}>
-          <Form.Item label="Компонент" name="article_code" rules={[{ required: true }]}>
-            <Select showSearch optionFilterProp="label" placeholder="Выберите"
-              options={articles.map(a => ({ value: a.code, label: `${a.code} — ${a.name}` }))} />
-          </Form.Item>
-          <Form.Item label="Количество" name="quantity" rules={[{ required: true }]}>
-            <InputNumber min={0.01} precision={2} style={{ width: "100%" }} />
-          </Form.Item>
-          <Form.Item label="Цена за единицу (₽)" name="price_per_unit">
-            <InputNumber min={0} precision={2} style={{ width: "100%" }} />
-          </Form.Item>
-          <Form.Item label="Дата" name="movement_date">
-            <DatePicker style={{ width: "100%" }} format="DD.MM.YYYY" />
-          </Form.Item>
-          <Form.Item label="Комментарий" name="comment"><Input.TextArea rows={2} /></Form.Item>
-          <Button type="primary" htmlType="submit" loading={saving} block>Сохранить</Button>
-        </Form>
-      </Modal>
     </div>
   );
 }
