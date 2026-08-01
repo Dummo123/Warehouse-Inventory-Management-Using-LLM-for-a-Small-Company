@@ -1,13 +1,12 @@
 import React from "react";
-import { Layout, Menu, Button, Typography } from "antd";
+import { Layout, Menu, Typography } from "antd";
 import {
   DatabaseOutlined, SwapOutlined, AppstoreOutlined,
   ShoppingCartOutlined, RollbackOutlined, ToolOutlined,
   DollarOutlined, TeamOutlined, RobotOutlined,
-  LogoutOutlined, FileExcelOutlined, SendOutlined,
+  FileExcelOutlined, SendOutlined,
 } from "@ant-design/icons";
 import { useNavigate, useLocation, Outlet } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
 
 const { Sider, Content, Header } = Layout;
 const { Text } = Typography;
@@ -37,7 +36,10 @@ const PAGE_TITLES: Record<string, string> = {
 export default function AppLayout() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signOut } = useAuth();
+
+  // Для вложенных страниц вида /purchases/new подсвечиваем родительский
+  // пункт меню и показываем тот же заголовок в шапке, что и у списка.
+  const basePath = "/" + location.pathname.split("/")[1];
 
   return (
     <Layout style={{ minHeight: "100vh" }}>
@@ -48,22 +50,16 @@ export default function AppLayout() {
           <br />
           <Text type="secondary" style={{ fontSize: 11 }}>SmartTherm</Text>
         </div>
-        <Menu mode="inline" selectedKeys={[location.pathname]} items={menuItems}
+        <Menu mode="inline" selectedKeys={[basePath]} items={menuItems}
           onClick={({ key }) => navigate(key)}
           style={{ borderRight: 0, marginTop: 4, fontSize: 13 }} />
-        <div style={{ padding: "12px 16px", borderTop: "1px solid #f0f0f0",
-          position: "absolute", bottom: 0, width: "100%" }}>
-          <Button icon={<LogoutOutlined />} type="text" block onClick={signOut}
-            style={{ textAlign: "left", color: "#888", fontSize: 13 }}>
-            Выйти
-          </Button>
-        </div>
+        {/* Блок "Выйти" убран — авторизация отключена (демо-режим, 30.07.2026) */}
       </Sider>
       <Layout style={{ marginLeft: 210 }}>
         <Header style={{ background: "#fff", padding: "0 24px",
           borderBottom: "1px solid #f0f0f0", height: 48, lineHeight: "48px" }}>
           <Text style={{ fontSize: 14, color: "#333" }}>
-            {PAGE_TITLES[location.pathname] ?? "WIM"}
+            {PAGE_TITLES[basePath] ?? "WIM"}
           </Text>
         </Header>
         <Content style={{ margin: 24, padding: 24, background: "#fff", borderRadius: 8, minHeight: 400 }}>
