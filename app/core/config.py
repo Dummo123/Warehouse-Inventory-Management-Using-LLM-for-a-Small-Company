@@ -9,6 +9,10 @@ class Settings(BaseSettings):
     FIRST_ADMIN_USERNAME: str = "admin"
     FIRST_ADMIN_PASSWORD: str = "admin123"
 
+    OLLAMA_URL: str = "http://localhost:11434/api/generate"
+    OLLAMA_MODEL: str = "llama3.1:8b"
+    OPERATING_EXPENSES_MONTHLY: float = 0.0
+
     class Config:
         env_file = ".env"
 
