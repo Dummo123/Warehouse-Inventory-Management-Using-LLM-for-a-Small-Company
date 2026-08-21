@@ -30,3 +30,5 @@ export const postReturn = (data: object) => api.post("/movements/return", data);
 
 export const exportExcel = (date_from?: string, date_to?: string) =>
   api.get("/reports/export", { params: { date_from, date_to }, responseType: "blob" });
+
+export const askAssistant = (question: string) => api.post("/assistant/ask", { question });
