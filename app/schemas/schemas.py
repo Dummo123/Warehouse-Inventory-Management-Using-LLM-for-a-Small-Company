@@ -116,7 +116,6 @@ class ProductionCreate(BaseModel):
 
 
 class ProductionOut(BaseModel):
-    batch_id: int
     finished_article_code: str
     finished_article_name: str
     quantity_produced: float
