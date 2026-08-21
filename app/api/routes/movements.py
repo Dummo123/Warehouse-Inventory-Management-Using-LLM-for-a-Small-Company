@@ -7,7 +7,7 @@ from app.api.deps import get_current_user, require_operator
 from app.db.session import get_db
 from app.models.models import (
     Movement, MovementType, Article, ArticleType,
-    Stock, Warehouse, WarehouseType, ProductionBatch, BOM, User
+    Stock, Warehouse, WarehouseType, BOM, User
 )
 from app.schemas.schemas import MovementCreate, MovementOut, ProductionCreate, ProductionOut
 
@@ -165,8 +165,7 @@ def production(
 ):
     """
     Производство (/pr) — конвертация комплектующих в готовое изделие.
-    Проверяет наличие всех компонентов по BOM, затем списывает их
-    и оприходует готовые изделия — всё в одной транзакции.
+    Проверяет BOM, списывает компоненты, оприходует готовые — всё в одной транзакции.
     """
     finished = db.query(Article).filter(
         Article.code == payload.finished_article_code,
@@ -183,32 +182,22 @@ def production(
     wh_comp = _get_warehouse(db, WarehouseType.COMPONENTS)
     wh_fin = _get_warehouse(db, WarehouseType.FINISHED_GOODS)
 
-    # проверяем что всего хватает прежде чем что-то трогать
+    # проверяем наличие всех компонентов до того как что-то менять
     shortages = []
     for entry in bom_entries:
         required = entry.quantity * payload.quantity
         stock = _get_stock(db, entry.child_id, wh_comp.id)
         if stock.quantity < required:
             shortages.append(
-                f"{entry.child.code} ({entry.child.name}): "
-                f"нужно {required}, есть {stock.quantity}"
+                f"{entry.child.code} ({entry.child.name}): нужно {required}, есть {stock.quantity}"
             )
     if shortages:
-        raise HTTPException(
-            status_code=400,
-            detail="Недостаточно компонентов:\n" + "\n".join(shortages),
-        )
+        raise HTTPException(400, "Недостаточно компонентов:\n" + "\n".join(shortages))
 
-    batch = ProductionBatch(
-        finished_article_id=finished.id,
-        quantity_produced=payload.quantity,
-        user_id=current_user.id,
-        comment=payload.comment,
-    )
-    db.add(batch)
-    db.flush()
-
+    prod_comment = payload.comment or f"Производство {payload.quantity} шт. {finished.code}"
+    now = datetime.utcnow()
     components_deducted = []
+
     for entry in bom_entries:
         required = entry.quantity * payload.quantity
         stock = _get_stock(db, entry.child_id, wh_comp.id)
@@ -219,10 +208,9 @@ def production(
             warehouse_id=wh_comp.id,
             movement_type=MovementType.PRODUCTION,
             quantity=required,
-            comment=f"Производство {payload.quantity} шт. {finished.code}",
-            movement_date=datetime.utcnow(),
+            comment=prod_comment,
+            movement_date=now,
             user_id=current_user.id,
-            production_batch_id=batch.id,
         ))
         components_deducted.append({
             "code": entry.child.code,
@@ -239,21 +227,19 @@ def production(
         warehouse_id=wh_fin.id,
         movement_type=MovementType.PRODUCTION,
         quantity=payload.quantity,
-        comment=payload.comment,
-        movement_date=datetime.utcnow(),
+        comment=prod_comment,
+        movement_date=now,
         user_id=current_user.id,
-        production_batch_id=batch.id,
     ))
     db.commit()
 
     return ProductionOut(
-        batch_id=batch.id,
         finished_article_code=finished.code,
         finished_article_name=finished.name,
         quantity_produced=payload.quantity,
         components_deducted=components_deducted,
-        comment=payload.comment,
-        produced_at=batch.produced_at,
+        comment=prod_comment,
+        produced_at=now,
     )
 
 
@@ -263,7 +249,11 @@ def return_goods(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_operator),
 ):
-    """Возврат готового товара от клиента."""
+    """
+    Возврат готового товара от клиента.
+    Фиксирует канал продаж и дату — чтобы корректно считать выручку по периодам
+    даже если возврат пришёл в другом месяце чем отгрузка.
+    """
     article = db.query(Article).filter(
         Article.code == payload.article_code,
         Article.is_active == True
