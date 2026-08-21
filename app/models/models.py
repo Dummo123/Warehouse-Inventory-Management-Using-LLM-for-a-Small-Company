@@ -21,11 +21,11 @@ class WarehouseType(str, PyEnum):
 
 
 class MovementType(str, PyEnum):
-    RECEIPT = "receipt"        # /po
-    SHIPMENT = "shipment"      # /ot
-    PRODUCTION = "production"  # /pr
-    RETURN = "return"
-    WRITE_OFF = "write_off"
+    RECEIPT = "receipt"        # /po — поступление на склад компонентов
+    SHIPMENT = "shipment"      # /ot — отгрузка готовой продукции
+    PRODUCTION = "production"  # /pr — производство (списание компонентов + оприходование)
+    RETURN = "return"          # возврат от клиента
+    WRITE_OFF = "write_off"    # списание / коррекция
 
 
 class UserRole(str, PyEnum):
@@ -35,9 +35,9 @@ class UserRole(str, PyEnum):
 
 
 class SalesChannel(str, PyEnum):
-    MARKETPLACE_1 = "marketplace_1"
-    MARKETPLACE_2 = "marketplace_2"
-    WEBSITE = "website"
+    MARKETPLACE_1 = "marketplace_1"   # Ozon
+    MARKETPLACE_2 = "marketplace_2"   # Яндекс.Маркет
+    WEBSITE = "website"               # Собственный сайт
     OTHER = "other"
 
 
@@ -52,6 +52,7 @@ class Warehouse(Base):
 
 
 class Article(Base):
+    """Единый справочник артикулов: и комплектующие (1118-1136), и готовые изделия (FS_*)."""
     __tablename__ = "articles"
 
     id = Column(Integer, primary_key=True)
@@ -72,11 +73,12 @@ class Article(Base):
 
 
 class BOM(Base):
+    """Спецификация: из каких компонентов состоит каждое готовое изделие."""
     __tablename__ = "bom"
 
     id = Column(Integer, primary_key=True)
-    parent_id = Column(Integer, ForeignKey("articles.id"), nullable=False)
-    child_id = Column(Integer, ForeignKey("articles.id"), nullable=False)
+    parent_id = Column(Integer, ForeignKey("articles.id"), nullable=False)  # готовое изделие
+    child_id = Column(Integer, ForeignKey("articles.id"), nullable=False)   # компонент
     quantity = Column(Float, nullable=False, default=1.0)
 
     __table_args__ = (UniqueConstraint("parent_id", "child_id", name="uq_bom_parent_child"),)
@@ -86,6 +88,7 @@ class BOM(Base):
 
 
 class Stock(Base):
+    """Текущий остаток по каждому артикулу на каждом складе."""
     __tablename__ = "stock"
 
     id = Column(Integer, primary_key=True)
@@ -100,6 +103,10 @@ class Stock(Base):
 
 
 class Movement(Base):
+    """
+    Журнал всех движений — источник правды для аналитики и отчётов.
+    Записи только добавляются, никогда не удаляются.
+    """
     __tablename__ = "movements"
 
     id = Column(Integer, primary_key=True)
@@ -113,27 +120,10 @@ class Movement(Base):
     movement_date = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    production_batch_id = Column(Integer, ForeignKey("production_batches.id"), nullable=True)
 
     article = relationship("Article", back_populates="movements")
     warehouse = relationship("Warehouse")
     user = relationship("User", back_populates="movements")
-    production_batch = relationship("ProductionBatch", back_populates="movements")
-
-
-class ProductionBatch(Base):
-    __tablename__ = "production_batches"
-
-    id = Column(Integer, primary_key=True)
-    finished_article_id = Column(Integer, ForeignKey("articles.id"), nullable=False)
-    quantity_produced = Column(Float, nullable=False)
-    produced_at = Column(DateTime, default=datetime.utcnow)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-    comment = Column(Text, nullable=True)
-
-    movements = relationship("Movement", back_populates="production_batch")
-    finished_article = relationship("Article")
-    user = relationship("User")
 
 
 class User(Base):
