@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.routes import auth, articles, stock, movements, reports
+from app.api.routes import auth, articles, stock, movements, reports, assistant
 
 app = FastAPI(
     title="WIM — Warehouse Inventory Management API",
@@ -22,6 +22,7 @@ app.include_router(articles.router, prefix="/api")
 app.include_router(stock.router, prefix="/api")
 app.include_router(movements.router, prefix="/api")
 app.include_router(reports.router, prefix="/api")
+app.include_router(assistant.router, prefix="/api")
 
 
 @app.get("/")
