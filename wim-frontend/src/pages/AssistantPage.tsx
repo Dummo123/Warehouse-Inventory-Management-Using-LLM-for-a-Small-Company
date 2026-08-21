@@ -1,8 +1,10 @@
 import React, { useState } from "react";
-import { Card, Button, List, Typography, Space, Alert, Tag } from "antd";
+import { Card, Button, List, Typography, Space, Alert, Tag, Input, Spin } from "antd";
 import { RobotOutlined, SendOutlined } from "@ant-design/icons";
+import { askAssistant } from "../api";
 
-const { Text, Title } = Typography;
+const { Text, Paragraph } = Typography;
+const { TextArea } = Input;
 
 const PRESET_QUESTIONS = [
   { label: "Дефицит для производства", question: "Чего не хватает для производства FS_ST005 в количестве 5 штук?" },
@@ -13,19 +15,38 @@ const PRESET_QUESTIONS = [
 ];
 
 export default function AssistantPage() {
-  const [selected, setSelected] = useState<string | null>(null);
+  const [question, setQuestion] = useState("");
+  const [answer, setAnswer] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const ask = async (q: string) => {
+    if (!q.trim()) return;
+    setLoading(true);
+    setError(null);
+    setAnswer(null);
+    try {
+      const res = await askAssistant(q);
+      setAnswer(res.data.answer);
+    } catch (e: any) {
+      setError(e?.response?.data?.detail ?? "Не удалось получить ответ от ассистента. Бэкенд запущен?");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div style={{ maxWidth: 720 }}>
       <Alert type="info" showIcon icon={<RobotOutlined />}
-        message="ИИ-помощник — в разработке (Чекпоинт #3)"
-        description="Ассистент на базе Ollama (Llama 3.1 8B) + RAG будет доступен после получения доступа к серверу. Здесь показаны 5 обязательных вопросов из ТЗ."
+        message="Помощник"
+        description="Числа в ответе всегда считаются напрямую из базы данных склада. Модель используется только для формулировки текста."
         style={{ marginBottom: 24 }} />
-      <Card title="5 обязательных вопросов по ТЗ" size="small" style={{ marginBottom: 24 }}>
+
+      <Card title="5 основных вопросов" size="small" style={{ marginBottom: 24 }}>
         <List dataSource={PRESET_QUESTIONS} renderItem={(item) => (
-          <List.Item onClick={() => setSelected(item.question)}
+          <List.Item onClick={() => setQuestion(item.question)}
             style={{ cursor: "pointer", padding: "10px 12px",
-              background: selected === item.question ? "#f0f5ff" : "transparent", borderRadius: 6, marginBottom: 4 }}>
+              background: question === item.question ? "#f0f5ff" : "transparent", borderRadius: 6, marginBottom: 4 }}>
             <Space direction="vertical" size={2} style={{ width: "100%" }}>
               <Tag color="blue">{item.label}</Tag>
               <Text>{item.question}</Text>
@@ -33,25 +54,23 @@ export default function AssistantPage() {
           </List.Item>
         )} />
       </Card>
-      {selected && (
-        <Card size="small">
-          <Space direction="vertical" style={{ width: "100%" }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>Выбранный вопрос:</Text>
-            <div style={{ background: "#fafafa", padding: 12, borderRadius: 6 }}><Text>{selected}</Text></div>
-            <Button type="primary" icon={<SendOutlined />} disabled>Отправить (доступно в Чекпоинте #3)</Button>
-          </Space>
-        </Card>
-      )}
-      <Card title="Архитектура (план)" size="small" style={{ marginTop: 24 }}>
-        <List size="small" dataSource={[
-          "Вопрос на русском языке → векторизация (MiniLM-L12-v2)",
-          "Qdrant ищет релевантный контекст по артикулам и BOM",
-          "SQL-запрос достаёт живые данные из PostgreSQL",
-          "Контекст + данные → Ollama (Llama 3.1 8B)",
-          "Ответ с пометкой «Данные на: дата»",
-        ]} renderItem={(item, i) => (
-          <List.Item><Space><Tag>{i + 1}</Tag><Text style={{ fontSize: 13 }}>{item}</Text></Space></List.Item>
-        )} />
+
+      <Card size="small">
+        <Space direction="vertical" style={{ width: "100%" }} size={12}>
+          <TextArea rows={3} value={question} onChange={(e) => setQuestion(e.target.value)}
+            placeholder="Задайте вопрос об остатках, производстве, продажах или финансах..." />
+          <Button type="primary" icon={<SendOutlined />} loading={loading}
+            onClick={() => ask(question)} disabled={!question.trim()}>
+            Спросить
+          </Button>
+          {loading && <Spin size="small" />}
+          {error && <Alert type="error" message={error} showIcon />}
+          {answer && (
+            <div style={{ background: "#fafafa", padding: 16, borderRadius: 6 }}>
+              <Paragraph style={{ whiteSpace: "pre-wrap", marginBottom: 0 }}>{answer}</Paragraph>
+            </div>
+          )}
+        </Space>
       </Card>
     </div>
   );
