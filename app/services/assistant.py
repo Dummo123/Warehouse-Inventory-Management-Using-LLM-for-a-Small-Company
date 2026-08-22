@@ -48,11 +48,33 @@ def _dated(answer: str) -> str:
     return answer + f"\n\n_Данные на: {datetime.utcnow():%d.%m.%Y %H:%M} UTC_"
 
 
+# ── НОВОЕ: "текущий момент" для относительных периодов ──────────────────
+#
+# Раньше "сейчас" во всех расчётах ("прошлый месяц", "последний квартал",
+# "последние 3 месяца") бралось из реальных часов компьютера
+# (datetime.utcnow()). Это ломается ровно в тот момент, когда реальное
+# время уходит вперёд относительно исторической выгрузки: если последнее
+# движение в базе датировано ноябрём 2025, а на часах — август 2026, то
+# "прошлый месяц" по часам (июль 2026) в данных попросту пуст, хотя
+# содержательные данные в базе есть — просто не в этом окне времени.
+#
+# Решение: точку отсчёта "сейчас" для ВСЕХ относительных периодов берём
+# не с часов, а по дате последнего движения в самой базе. Формулы и
+# логика не меняются — меняется только то, откуда берётся "сейчас".
+# Это не костыль, а корректный подход для систем с периодическим
+# импортом исторических данных (данные не "устаревают" сами по себе,
+# просто перестают быть актуальными для "живых" часов).
+def _reference_now(db: Session) -> datetime:
+    latest = db.query(func.max(Movement.movement_date)).scalar()
+    return latest or datetime.utcnow()
+
+
 _QTY_RE = re.compile(r"(\d+)\s*(шт|штук|штуки|единиц)?", re.IGNORECASE)
 _ARTICLE_RE = re.compile(r"\b([A-ZА-Я]{1,4}_[A-ZА-Я0-9]{2,}|\d{3,5})\b")
 
 
 def handle_production_shortage(db: Session, question: str) -> str:
+    # Не меняется: проверяет ТЕКУЩИЕ остатки, дата тут ни при чём.
     art_match = _ARTICLE_RE.search(question.upper())
     if art_match:
         code = art_match.group(1)
@@ -97,7 +119,7 @@ SAFETY_STOCK_FACTOR = 1.2
 
 
 def handle_purchase_plan(db: Session, question: str) -> str:
-    now = datetime.utcnow()
+    now = _reference_now(db)  # было: datetime.utcnow()
     period_start = now - timedelta(days=90)
     months = 3
 
@@ -142,7 +164,7 @@ def handle_purchase_plan(db: Session, question: str) -> str:
 
 
 def handle_top_sellers(db: Session, question: str) -> str:
-    now = datetime.utcnow()
+    now = _reference_now(db)  # было: datetime.utcnow()
     first_of_this_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     last_month_end = first_of_this_month - timedelta(seconds=1)
     last_month_start = last_month_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
@@ -190,7 +212,7 @@ def handle_revenue_by_channel(db: Session, question: str) -> str:
     if not article:
         return "Не смог распознать артикул в вопросе. Уточните код (например FS_ST005) или точное название."
 
-    now = datetime.utcnow()
+    now = _reference_now(db)  # было: datetime.utcnow()
     period_start = now - timedelta(days=90)
 
     shipments = (
@@ -226,7 +248,7 @@ def handle_revenue_by_channel(db: Session, question: str) -> str:
 
 
 def handle_available_funds(db: Session, question: str) -> str:
-    now = datetime.utcnow()
+    now = _reference_now(db)  # было: datetime.utcnow()
     first_of_this_month = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
     period_end = first_of_this_month - timedelta(seconds=1)
     period_start = period_end.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
