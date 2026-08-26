@@ -178,12 +178,3 @@ JWT и bcrypt реализованы (`security.py`), но в текущей в�
 и вернуть interceptor в `client.ts` и защищённые маршруты в `App.tsx`.
 
 ---
-
-## Документация
-
-| Файл | Содержание |
-|---|---|
-| `WIM_Full_Project_Description.docx` | Гайд по запуску, стек, построчный разбор файлов, сверка с ТЗ, настройка ИИ-помощника, changelog |
-| `WIM_Windows_Full_Guide.docx` | Пошаговый запуск для Windows/PyCharm |
-| `Linux_Guide.md` | Пошаговый запуск для Linux/WSL |
-| `ТЗ_на_склад.docx` | Техническое задание |
